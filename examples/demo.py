@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """admin-detector 使用示例"""
-
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from admin_detector import AdminDetector, UnixAdminDetector, WindowsAdminDetector
 import platform
 
