@@ -39,30 +39,31 @@ class TestAdminDetector(unittest.TestCase):
     @patch('admin_detector.core.platform.system')
     def test_is_admin_unix_root(self, mock_system):
         mock_system.return_value = 'Linux'
-        with patch('admin_detector.core.os.geteuid', return_value=0):
+        with patch('admin_detector.core.os.geteuid', return_value=0, create=True):
             self.assertTrue(AdminDetector.is_admin())
 
     @patch('admin_detector.core.platform.system')
     def test_is_admin_unix_sudo(self, mock_system):
         mock_system.return_value = 'Linux'
-        with patch('admin_detector.core.os.geteuid', return_value=1000):
+        with patch('admin_detector.core.os.geteuid', return_value=1000, create=True):
             with patch.dict('os.environ', {'SUDO_USER': 'user'}):
                 self.assertTrue(AdminDetector.is_admin())
 
     @patch('admin_detector.core.platform.system')
     def test_is_admin_unix_regular(self, mock_system):
         mock_system.return_value = 'Linux'
-        with patch('admin_detector.core.os.geteuid', return_value=1000):
+        with patch('admin_detector.core.os.geteuid', return_value=1000, create=True):
             with patch.dict('os.environ', clear=True):
                 self.assertFalse(AdminDetector.is_admin())
 
     def test_unix_detector_root(self):
-        with patch('admin_detector.core.os.geteuid', return_value=0):
+        with patch('admin_detector.core.os.geteuid', return_value=0, create=True):
             self.assertTrue(UnixAdminDetector.is_root())
-            self.assertTrue(UnixAdminDetector.is_sudo())  # Not sudo, but root is admin
+            # root 用户不一定通过 sudo 运行，所以 is_sudo() 应为 False
+            self.assertFalse(UnixAdminDetector.is_sudo())
 
     def test_unix_detector_sudo(self):
-        with patch('admin_detector.core.os.geteuid', return_value=1000):
+        with patch('admin_detector.core.os.geteuid', return_value=1000, create=True):
             with patch.dict('os.environ', {'SUDO_USER': 'alice'}):
                 self.assertFalse(UnixAdminDetector.is_root())
                 self.assertTrue(UnixAdminDetector.is_sudo())
@@ -86,8 +87,9 @@ class TestAdminDetector(unittest.TestCase):
     def test_get_admin_info_unix(self):
         with patch('admin_detector.core.platform.system', return_value='Linux'):
             with patch('admin_detector.core.AdminDetector.is_admin', return_value=True):
-                with patch('admin_detector.core.os.geteuid', return_value=0):
-                    with patch.dict('os.environ', {'USER': 'root'}):
+                with patch('admin_detector.core.os.geteuid', return_value=0, create=True):
+                    # 清空所有环境变量，只设置 USER=root，避免 Windows 的 USERNAME 干扰
+                    with patch.dict('os.environ', {'USER': 'root'}, clear=True):
                         info = AdminDetector.get_admin_info()
                         self.assertEqual(info['system'], 'linux')
                         self.assertEqual(info['username'], 'root')
@@ -102,7 +104,7 @@ class TestAdminDetector(unittest.TestCase):
 
     def test_check_admin_with_reason_unix_root(self):
         with patch('admin_detector.core.platform.system', return_value='Linux'):
-            with patch('admin_detector.core.os.geteuid', return_value=0):
+            with patch('admin_detector.core.os.geteuid', return_value=0, create=True):
                 result = AdminDetector.check_admin_with_reason()
                 self.assertTrue(result['has_admin'])
                 self.assertEqual(result['reason'], 'root 用户权限')
